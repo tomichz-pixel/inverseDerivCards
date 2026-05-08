@@ -1,1 +1,472 @@
-<p> 逆微分から積分を連想するための特殊ペアリング：微分の逆演算としての積分を意識し、微分の結果（特に逆三角関数関連）から元の関数を瞬時に連想するトレーニングを行います。
+<div id="math-game" style="width:100%; max-width:900px; margin:auto; font-family:sans-serif; position: relative;">
+
+<!-- MathJaxの読み込み -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]']]
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+<style>
+#math-game * { box-sizing:border-box; user-select:none; }
+
+#math-game .header {
+    height:48px;
+    background:#333;
+    color:#fff;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:0 12px;
+    font-size:14px;
+}
+
+#math-game .controls {
+    background: #f4f4f4;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    font-size: 14px;
+    border-bottom: 2px solid #ddd;
+}
+
+#math-game .controls label {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#math-game #reset-btn {
+    width: auto;
+    padding: 6px 12px;
+    margin: 0;
+    font-size: 13px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#math-game .board {
+    display:flex;
+    flex-direction:column;
+}
+
+#math-game .area {
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:8px;
+    padding:10px;
+}
+
+#math-game #bottom {
+    border-top: 2px dashed #ccc;
+}
+
+#math-game .card {
+    width:100%;
+    cursor:pointer;
+    border-radius:8px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.15);
+}
+
+#math-game .card-inner-wrapper {
+    position:relative;
+    width:100%;
+    padding-bottom:70%; 
+}
+
+#math-game .inner {
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    transform-style:preserve-3d;
+    transition:0.25s;
+    border-radius:8px;
+}
+
+#math-game .flipped .inner {
+    transform:rotateY(180deg);
+}
+
+#math-game .front,
+#math-game .back {
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding:4px;
+    backface-visibility:hidden;
+    -webkit-backface-visibility:hidden;
+    border-radius:8px;
+    font-weight:normal;
+}
+
+#math-game .math-text {
+    font-size: clamp(14px, 3.5vw, 18px);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 5px;
+}
+
+#math-game #top .front { background:#BBDEFB; color:#0D47A1; font-weight:bold; }
+#math-game #bottom .front { background:#FFE0B2; color:#E65100; font-weight:bold; }
+
+#math-game .back {
+    background:white;
+    transform:rotateY(180deg);
+}
+
+#math-game #top .back { color:#1565C0; }
+#math-game #bottom .back { color:#E65100; }
+
+#math-game .matched {
+    opacity:0;
+    transform:scale(0);
+    transition:0.25s;
+    pointer-events: none;
+}
+
+#math-game .modal {
+    display:none;
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.5);
+    justify-content:center;
+    align-items:flex-start; 
+    padding-top: 105px;
+    z-index: 10;
+}
+
+#math-game .modal-content {
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    width:90%;
+    max-width:420px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    max-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+}
+
+#math-game #txt {
+    overflow-y: auto;
+    padding-right: 5px;
+    text-align: center;
+}
+</style>
+
+<div class="header">
+    <div>逆微分・特殊ペアリングめくり</div>
+    <div>タイム: <span id="t">0</span>秒　ミス: <span id="m">0</span></div>
+</div>
+
+<div class="controls">
+    <label><input type="radio" name="pairCount" value="3"> 3組</label>
+    <label><input type="radio" name="pairCount" value="6" checked> 6組</label>
+    <button id="reset-btn">やり直す</button>
+</div>
+
+<div class="board">
+    <div class="area" id="top"></div>
+    <div class="area" id="bottom"></div>
+</div>
+
+<div class="modal" id="modal">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 id="mt" style="margin: 0; color: #333; font-size: 1.2em;"></h3>
+            <button id="btn" style="width: auto; margin: 0; padding: 6px 16px; background: #FF9800; color: white; border: none; border-radius: 20px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer;">次へ ＞</button>
+        </div>
+        <div id="txt"></div>
+    </div>
+</div>
+
+<script>
+(function(){
+
+const reverseDiffPairs = [
+  {
+    id: "rev_01",
+    type: "逆微分",
+    cond: "-1 < x < 1",
+    latexA: "\\int \\frac{1}{\\sqrt{1-x^2}} \\,dx",
+    latexB: "\\arcsin x",
+    note: "逆正弦関数（アークサイン）を微分すると得られる形です。積分結果として瞬時に連想できるようにします。"
+  },
+  {
+    id: "rev_02",
+    type: "逆微分",
+    cond: "-1 < x < 1",
+    latexA: "\\int \\left( -\\frac{1}{\\sqrt{1-x^2}} \\right) \\,dx",
+    latexB: "\\arccos x",
+    note: "逆余弦関数（アークコサイン）を微分すると得られる形です。マイナスがつく点に注意します。"
+  },
+  {
+    id: "rev_03",
+    type: "逆微分",
+    latexA: "\\int \\frac{1}{1+x^2} \\,dx",
+    latexB: "\\arctan x",
+    note: "逆正接関数（アークタンジェント）を微分すると得られる形です。有名な置換積分の根拠となる重要な式です。"
+  },
+  {
+    id: "rev_04",
+    type: "逆三角極限",
+    latexA: "\\lim_{x\\to0} \\frac{\\arcsin x}{x}",
+    latexB: "1",
+    note: "\\(t=\\arcsin x\\) と置換し、\\(\\lim_{t\\to0} \\frac{t}{\\sin t}\\) に帰着させることで導出します。"
+  },
+  {
+    id: "rev_05",
+    type: "逆三角極限",
+    latexA: "\\lim_{x\\to0} \\frac{\\arctan x}{x}",
+    latexB: "1",
+    note: "\\(t=\\arctan x\\) と置換し、\\(\\lim_{t\\to0} \\frac{t}{\\tan t}\\) に帰着させることで導出します。"
+  },
+  {
+    id: "rev_06",
+    type: "対数微分",
+    cond: "f(x) \\neq 0",
+    latexA: "\\int \\frac{f'(x)}{f(x)} \\,dx",
+    latexB: "\\log|f(x)|",
+    note: "分子が分母の微分になっている形です。置換積分を経由せず、対数関数へ直結させます。"
+  },
+  {
+    id: "rev_07",
+    type: "無理関数",
+    cond: "f(x) > 0",
+    latexA: "\\int \\frac{f'(x)}{2\\sqrt{f(x)}} \\,dx",
+    latexB: "\\sqrt{f(x)}",
+    note: "合成関数のルートの微分の逆演算です。積分の中にこのブロックを見つけたら一瞬で処理できます。"
+  },
+  {
+    id: "rev_08",
+    type: "積の微分",
+    latexA: "\\int \\{ f'(x)g(x) + f(x)g'(x) \\} \\,dx",
+    latexB: "f(x)g(x)",
+    note: "積の微分の展開形です。式の間に「＋」があり、互いに微分を交換しているのが目印です。"
+  },
+  {
+    id: "rev_09",
+    type: "商の微分",
+    cond: "g(x) \\neq 0",
+    latexA: "\\int \\frac{f'(x)g(x) - f(x)g'(x)}{\\{g(x)\\}^2} \\,dx",
+    latexB: "\\frac{f(x)}{g(x)}",
+    note: "商の微分の展開形です。「－」があることと、分母が2乗になっているのが見抜くポイントです。"
+  },
+  {
+    id: "rev_10",
+    type: "合成（指数）",
+    latexA: "\\int f'(x)e^{f(x)} \\,dx",
+    latexB: "e^{f(x)}",
+    note: "指数関数の肩に乗っている関数の微分が手前に掛けられている形です。微分の連鎖律の逆演算です。"
+  },
+  {
+    id: "rev_11",
+    type: "三角関数",
+    cond: "\\cos x \\neq 0",
+    latexA: "\\int \\frac{1}{\\cos^2 x} \\,dx",
+    latexB: "\\tan x",
+    note: "タンジェントの微分です。積分計算の途中で出現した際、迷わず戻せるようにします。"
+  },
+  {
+    id: "rev_12",
+    type: "特殊対数",
+    cond: "x > 0, x \\neq 1",
+    latexA: "\\int \\frac{1}{x \\log x} \\,dx",
+    latexB: "\\log|\\log x|",
+    note: "\\(f'(x)/f(x)\\) の特殊パターンです。分母の \\(f(x)\\) が \\(\\log x\\) だと見抜けるかが鍵です。"
+  }
+];
+
+let topSel=null, botSel=null, lock=false, modalOpen=false;
+let miss=0, match=0, start=null, timer;
+let currentPairCount = 6;
+
+const topArea=document.querySelector('#math-game #top');
+const bottomArea=document.querySelector('#math-game #bottom');
+const modal=document.querySelector('#math-game #modal');
+const mt=document.querySelector('#math-game #mt');
+const txt=document.querySelector('#math-game #txt');
+const btn=document.querySelector('#math-game #btn');
+const resetBtn=document.querySelector('#math-game #reset-btn');
+
+function shuffle(a){ return a.sort(()=>Math.random()-0.5); }
+
+function renderMath() {
+    if(window.MathJax) {
+        MathJax.typesetPromise().catch((err) => console.log(err.message));
+    }
+}
+
+function card(d, cardType){
+    let c=document.createElement('div');
+    c.className='card';
+
+    let wrapper=document.createElement('div');
+    wrapper.className='card-inner-wrapper';
+
+    let i=document.createElement('div');
+    i.className='inner';
+
+    let f=document.createElement('div');
+    f.className='front';
+    f.innerHTML = cardType === 'formula' ? '導関数・極限<br><span style="font-size:10px; font-weight:normal;">(Tap)</span>' : '元の関数・値<br><span style="font-size:10px; font-weight:normal;">(Tap)</span>';
+
+    let b=document.createElement('div');
+    b.className='back math-text'; 
+    
+    // 前提条件がある場合は、上部に小さく配置し、数式は中央に配置する
+    let conditionHtml = (cardType === 'formula' && d.cond) ? `<div style="font-size:0.75em; color:#d32f2f; margin-bottom:5px; width:100%; text-align:center; font-weight:bold;">【前提】\\( ${d.cond} \\)</div>` : '';
+    let formulaHtml = `<div style="flex-grow:1; display:flex; justify-content:center; align-items:center; width:100%;">\\( \\displaystyle ${cardType === 'formula' ? d.latexA : d.latexB} \\)</div>`;
+    
+    b.innerHTML = conditionHtml + formulaHtml;
+
+    i.appendChild(f);
+    i.appendChild(b);
+    wrapper.appendChild(i);
+    c.appendChild(wrapper);
+
+    c.onclick=()=>{
+        if(lock||modalOpen) return;
+        if(c.classList.contains('matched')) return;
+
+        if(!start){
+            start=Date.now();
+            timer=setInterval(()=>{
+                document.getElementById('t').textContent = Math.floor((Date.now()-start)/1000);
+            },250);
+        }
+
+        if (cardType === 'formula' && topSel && topSel.c === c) {
+            c.classList.remove('flipped');
+            topSel = null; return;
+        }
+        if (cardType === 'value' && botSel && botSel.c === c) {
+            c.classList.remove('flipped');
+            botSel = null; return;
+        }
+
+        c.classList.add('flipped');
+
+        if(cardType==='formula'){
+            if(topSel) topSel.c.classList.remove('flipped');
+            topSel={c,d};
+        }else{
+            if(botSel) botSel.c.classList.remove('flipped');
+            botSel={c,d};
+        }
+
+        if(topSel && botSel){
+            lock=true;
+
+            setTimeout(()=>{
+                // idが一致するか、または右辺（解答）が完全に一致していれば正解とする
+                let isMatch = (topSel.d.id === botSel.d.id) || (topSel.d.latexB === botSel.d.latexB);
+                let sign = "=";
+                
+                // モーダル内でも前提条件をはっきり表示
+                let condHtmlModal = topSel.d.cond ? `<div style="font-size:0.85em; color:#d32f2f; margin-bottom:10px; padding-bottom:5px; border-bottom:1px dashed #d32f2f; font-weight:bold;">【前提】 \\( ${topSel.d.cond} \\)</div>` : '';
+
+                let modalBody = 
+                    condHtmlModal + 
+                    `<div style="font-size:1.2em; margin:15px 0;">\\( \\displaystyle ${topSel.d.latexA} ${sign} ${topSel.d.latexB} \\)</div>`+
+                    `<div style="font-size:0.95em; text-align:left; background:#f4f4f4; padding:15px; border-radius:6px; line-height:1.6;">`+
+                    `<b>【解説: ${topSel.d.type}】</b><br>${topSel.d.note}</div>`;
+
+                if(isMatch){
+                    show('正解！', modalBody, ()=>{
+                        topSel.c.classList.add('matched');
+                        botSel.c.classList.add('matched');
+                        match++;
+                        reset();
+                        if(match===currentPairCount) end();
+                    });
+                }else{
+                    miss++;
+                    document.getElementById('m').textContent=miss;
+                    show('ちがうよ', modalBody, ()=>{
+                        topSel.c.classList.remove('flipped');
+                        botSel.c.classList.remove('flipped');
+                        reset();
+                    });
+                }
+            },600);
+        }
+    };
+
+    return c;
+}
+
+function reset(){ topSel=null; botSel=null; lock=false; }
+
+function show(t,body,cb){
+    modalOpen=true;
+    mt.textContent=t;
+    txt.innerHTML=body;
+    modal.style.display='flex';
+    
+    renderMath();
+
+    btn.onclick=()=>{
+        modal.style.display='none';
+        modalOpen=false;
+        cb();
+    };
+}
+
+function end(){
+    clearInterval(timer);
+    show('クリア！',`<div style="margin:10px 0; font-size:18px;">タイム: <b>${document.getElementById('t').textContent}</b>秒<br>ミス: <b>${miss}</b>回</div>よくできました！`, init);
+}
+
+function init(){
+    topSel=null; botSel=null;
+    match=0; miss=0;
+    document.getElementById('m').textContent=0;
+    document.getElementById('t').textContent=0;
+    if(timer) clearInterval(timer);
+    start=null;
+
+    const radios = document.getElementsByName('pairCount');
+    for (let r of radios) {
+        if (r.checked) currentPairCount = parseInt(r.value);
+    }
+
+    let gameData = shuffle([...reverseDiffPairs]).slice(0, currentPairCount);
+
+    topArea.innerHTML='';
+    bottomArea.innerHTML='';
+
+    shuffle([...gameData]).forEach(d=>topArea.appendChild(card(d,'formula')));
+    shuffle([...gameData]).forEach(d=>bottomArea.appendChild(card(d,'value')));
+
+    renderMath();
+}
+
+resetBtn.onclick = init;
+
+init();
+
+})();
+</script>
+
+</div>
